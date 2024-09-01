@@ -1,2 +1,4 @@
 envGPT/
 .env
+files/
+.cache/
