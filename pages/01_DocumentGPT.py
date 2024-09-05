@@ -36,8 +36,9 @@ def embed_file(file, api_key):
     docs = loader.load_and_split(text_splitter=splitter)
     embeddings = OpenAIEmbeddings(openai_api_key=api_key)
     cache_file_dir = f"./.cache/embeddings/{file.name}"
-    if not os.path.exists(cache_file_dir):
-        os.makedirs(cache_file_dir)
+    folder_path = os.path.dirname(cache_file_dir)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     cache_dir = LocalFileStore(cache_file_dir)
     cache_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
     vectorstores = FAISS.from_documents(docs, cache_embeddings)
@@ -113,6 +114,7 @@ Use this chatbot to ask questions to an AI about your files!
 with st.sidebar:
     st.write("Github repo:\nhttps://github.com/ddeeen/FullStackGPT")
 
+api_key = None
 with st.sidebar:
     with st.form("api_key"):
         api_key = st.text_input(label="Enter your OpenAI API key")
