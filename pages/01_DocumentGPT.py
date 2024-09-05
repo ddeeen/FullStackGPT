@@ -65,6 +65,7 @@ def check_api_key(api_key):
     try:
         openai.api_key = api_key
         openai.Model.list()
+        st.success("API Check Complete!")
         return True
     except Exception:
         st.error("Wrong API Key")
