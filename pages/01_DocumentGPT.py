@@ -10,6 +10,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 from langchain.callbacks.base import BaseCallbackHandler
 import openai
+import os
 
 # page tab 제목, 파비콘 추가
 st.set_page_config(
@@ -21,6 +22,8 @@ st.set_page_config(
 def embed_file(file):
     file_content = file.read()
     file_path = f"./.cache/files/{file.name}"
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
     with open(file_path, "wb") as f:
         f.write(file_content)
     loader = UnstructuredFileLoader(file_path)
@@ -31,7 +34,10 @@ def embed_file(file):
     )
     docs = loader.load_and_split(text_splitter=splitter)
     embeddings = OpenAIEmbeddings()
-    cache_dir = LocalFileStore(f"./.cache/embeddings/{file.name}")
+    cache_file_dir = f"./.cache/embeddings/{file.name}"
+    if not os.path.exists(cache_file_dir):
+        os.makedirs(cache_file_dir)
+    cache_dir = LocalFileStore(cache_file_dir)
     cache_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
     vectorstores = FAISS.from_documents(docs, cache_embeddings)
     retriever = vectorstores.as_retriever()
