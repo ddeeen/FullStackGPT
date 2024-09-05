@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 @st.cache_data(show_spinner="Embedding file...")
-def embed_file(file):
+def embed_file(file, api_key):
     file_content = file.read()
     file_path = f"./.cache/files/{file.name}"
     folder_path = os.path.dirname(file_path)
@@ -34,7 +34,7 @@ def embed_file(file):
         chunk_overlap=100,
     )
     docs = loader.load_and_split(text_splitter=splitter)
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(openai_api_key=api_key)
     cache_file_dir = f"./.cache/embeddings/{file.name}"
     if not os.path.exists(cache_file_dir):
         os.makedirs(cache_file_dir)
@@ -134,7 +134,7 @@ llm = ChatOpenAI(
 
 if api_key:
     if check_api_key(api_key, llm) and file:
-        retriever = embed_file(file)
+        retriever = embed_file(file, api_key)
         send_message("I'm ready! Ask away!", "ai", save=False)
         paint_history()
         message = st.chat_input("Ask anything about your file...")
