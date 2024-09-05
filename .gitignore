@@ -2,3 +2,14 @@ envGPT/
 .env
 files/
 .cache/
+.streamlit/
+pages/01_Document.py
+pages/02_Private.py
+pages/03_Quiz.py
+pages/04_Site.py
+pages/05_Meeting.py
+pages/06_Investor.py
+Home.py
+notebook.ipynb
+train.ipynb
+assignment13.ipynb
