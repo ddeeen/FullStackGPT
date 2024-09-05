@@ -22,8 +22,9 @@ st.set_page_config(
 def embed_file(file):
     file_content = file.read()
     file_path = f"./.cache/files/{file.name}"
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
+    folder_path = os.path.dirname(file_path)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     with open(file_path, "wb") as f:
         f.write(file_content)
     loader = UnstructuredFileLoader(file_path)
