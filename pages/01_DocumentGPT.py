@@ -18,11 +18,6 @@ st.set_page_config(
     page_icon="🧊"
 )
 
-if "success" not in st.session_state:
-    st.session_state["success"] = False
-if "api_ok" not in st.session_state:
-    st.session_state.api_ok = False
-
 @st.cache_data(show_spinner="Embedding file...")
 def embed_file(file, api_key):
     file_content = file.read()
@@ -66,15 +61,14 @@ def paint_history():
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
 
-# @st.cache_data(show_spinner="Check API...")
-def check_api_key(api_key, _llm):
+def check_api_key(api_key):
     try:
-        llm.invoke("This is a test message.")
-        st.session_state["success"] = True
+        openai.api_key = api_key
+        openai.Model.list()
         return True
-    except openai.error.AuthenticationError:
+    except Exception:
         st.error("Wrong API Key")
-    return False
+        return False
 
 class ChatCallbackHandler(BaseCallbackHandler):
     message = ""
@@ -83,13 +77,11 @@ class ChatCallbackHandler(BaseCallbackHandler):
         self.message_box = st.empty()
     
     def on_llm_end(self, *args, **kargs):
-        if st.session_state.get("success", False):
-            save_message(self.message, "ai")
+        save_message(self.message, "ai")
 
     def on_llm_new_token(self, token, *args, **kargs):
-        if st.session_state.get("success", False):
-            self.message += token
-            self.message_box.markdown(self.message)
+        self.message += token
+        self.message_box.markdown(self.message)
 
 template = ChatPromptTemplate.from_messages([
     ("system", """
@@ -123,8 +115,6 @@ with st.sidebar:
     with st.form("api_key"):
         api_key = st.text_input(label="Enter your OpenAI API key")
         submit = st.form_submit_button("Submit")
-        # if submit:
-        #     st.session_state["change_api"] = True
     file = st.file_uploader(
         "Upload a .txt .pdf or .docx file",
         type=["pdf", "txt", "docx"],
@@ -140,11 +130,8 @@ llm = ChatOpenAI(
     api_key=api_key
 )
 
-if submit:
-    st.session_state["api_ok"] = check_api_key(api_key, llm)
-
 if api_key:
-    if st.session_state["api_ok"] and file:
+    if check_api_key(api_key) and file:
         retriever = embed_file(file, api_key)
         send_message("I'm ready! Ask away!", "ai", save=False)
         paint_history()
