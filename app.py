@@ -6,6 +6,10 @@ st.set_page_config(
     page_icon="💋"
 )
 
+if "success" not in st.session_state:
+    st.session_state["success"] = False
+if "api_ok" not in st.session_state:
+    st.session_state.api_ok = False
 
 st.title("FullstackGPT Home")
 
