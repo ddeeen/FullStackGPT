@@ -4,33 +4,19 @@ from langchain.document_loaders import UnstructuredFileLoader
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.retrievers import WikipediaRetriever
 from langchain.chat_models import ChatOpenAI
-from langchain.callbacks import StreamingStdOutCallbackHandler
 from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnableLambda
-from langchain.schema import BaseOutputParser
+import openai
 import json
 
-class JsonOutputParser(BaseOutputParser):
-
-    def parse(self, text):
-        text = text.replace("```json", "").replace("```", "")
-        return json.loads(text)
-        # quiz = json.load(text)
-        # with st.form(key="quiz"):
-        #     for question in quiz["questions"]:
-        #         st.write(question["question"])
-        #         for answer in question["answers"]:
-        #             st.checkbox(answer["answer"], value=answer["correct"])
-        #     st.form_submit_button("Submit")
-
-output_parser = JsonOutputParser()
+if "disabled" not in st.session_state:
+    st.session_state["disabled"] = False
 
 # 함수==================================================
 @st.cache_data(show_spinner="Embedding file...")
 def split_file(file):
     file_content = file.read()
-    file_path = f"./.cache/files/{file.name}"
-    folder_path = os.path.dirname(file_path)
+    folder_path = "./.cache/quiz_files/"
+    file_path = f"{folder_path}{file.name}"
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
     with open(file_path, "wb") as f:
@@ -55,10 +41,28 @@ def search_wiki(topic):
     docs = retriever.invoke(topic)
     return docs
 
+def check_api_key(api_key):
+    try:
+        openai.api_key = api_key
+        openai.Model.list()
+        os.environ["OPENAI_API_KEY"] = api_key
+        return True
+    except Exception:
+        st.error("Wrong API Key")
+        return False
+
 @st.cache_data(show_spinner="Making quiz...")
-def invoke_quiz_chain(_docs, topic):
-    chain = {"context":question_chain} | formatting_chain | output_parser
-    return chain.invoke(_docs)
+def invoke_quiz_chain(_docs, topic, level):
+    chain = quiz_template | llm
+    message = chain.invoke({"context":_docs, "level":level})
+    message = message.additional_kwargs["function_call"]["arguments"]
+    return json.loads(message)
+
+def disabled_button(question_num, correct_num):
+    if question_num == correct_num:
+        st.session_state["disabled"] = True
+    else:
+        st.session_state["disabled"] = False
 # 함수==================================================
 
 # page tab 제목, 파비콘 추가
@@ -69,170 +73,80 @@ st.set_page_config(
 
 st.title("QuizGPT")
 
-llm = ChatOpenAI(
-    temperature=0.1,
-    model="gpt-4o-mini",
-    streaming=True,
-    callbacks=[
-        StreamingStdOutCallbackHandler(),
-    ]
-)
+quiz_function = {
+    "name": "create_quiz",
+    "description": "function that takes a list of questions and asnwers and return a quiz",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "questions": {
+                "type": "array",
+                "items": {
+                    "type":"object",
+                    "properties": {
+                        "question": {
+                            "type": "string"
+                        },
+                        "answers": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "answer": {
+                                        "type": "string"
+                                    },
+                                    "correct": {
+                                        "type": "boolean"
+                                    },
+                                },
+                                "required":["answer", "correct"]
+                            },
+                        },
+                    },
+                    "required":["question", "answers"]
+                },
+            },
+        },
+        "required":["questions"]
+    }
+}
 
-question_template = ChatPromptTemplate.from_messages([
+quiz_template = ChatPromptTemplate.from_messages([
     ("system", """
-     You are a helpful assistant that is role playing as a teacher.
-
-     Based ONLY on the following context make 10 questions to test the user's knowledge about the text.
-
-     Each question should have 4 answers, three of them must be incorrect and one should be correct.
-
-     Use (o) to signal the correct answer.
-
-     Question examples:
-
-     Question: What is the color of the ocean?
-     Answers: Red|Yellow|Green|Blue(o)
-
-     Question: What is the capital of Georgia?
-     Answers: Baku|Tbilisi(o)|Manila|Beirut
-
-     Question: When was Avatar released?
-     Answers: 2007|2001|2009(o)|1998
-
-     Question: Who was Julius Caesar?
-     Answers: A Roman Emperor(o)|Painter|Actor|Model
-
-     Your turn!
-
-     Context: {context}
-""")
-])
-
-question_chain = {"context":format_docs} | question_template | llm
-
-formatting_template = ChatPromptTemplate.from_messages([
-    ("system", """
-     You are a powerful formatting algorithm.
+Context-based Questions:
+All questions must be created based on the provided context.
+The goal is to test how well the user understands the content of the context.
+**Make 10 questions
      
-     You format exam quesitons into JSON format.
-     Answers with (o) are the correct ones.
-
-     Example Input:
-
-     Question: What is the color of the ocean?
-     Answers: Red|Yellow|Green|Blue(o)
-
-     Question: What is the captial of Georgia?
-     Answers: Baku|Tbilisi(o)|Manila|Beirut
-
-     Question:When was Avatar released?
-     Answers 2007|2001|2009(o)|2024
-
-     Question: Who was Julius Caesar?
-     Answers: A Roman Emperor(o)|Painter|Actor|Model
-
-
-     Example Output:
+Difficulty Levels:
+For easy mode: Generate ten multiple-choice questions with four answer choices for each question.
+For hard mode: Generate ten multiple-choice questions with five answer choices for each question.
      
-     ```json
-     {{ "questions": [
-        {{
-            "question": "What is the color of the ocean?",
-            "answers": [
-                {{
-                    "answer": "Red",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Yellow",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Green",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Blue",
-                    "correct": true
-                }},
-            ]
-        }},
-        {{
-            "question": "What is the captial of Georgia",
-            "answers": [
-                {{
-                    "answer": "Baku",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Tbilisi",
-                    "correct": true
-                }},
-                {{
-                    "answer": "Manila",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Beirut",
-                    "correct": false
-                }},
-            ]
-        }},
-        {{
-            "question": "When was Avatar released",
-            "answers": [
-                {{
-                    "answer": "2007",
-                    "correct": false
-                }},
-                {{
-                    "answer": "2001",
-                    "correct": false
-                }},
-                {{
-                    "answer": "2009",
-                    "correct": true
-                }},
-                {{
-                    "answer": "2024",
-                    "correct": false
-                }},
-            ]
-        }},
-        {{
-            "question": "Who was Julius Caesar?",
-            "answers": [
-                {{
-                    "answer": "A Roman Emperor",
-                    "correct": true
-                }},
-                {{
-                    "answer": "Painter",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Actor",
-                    "correct": false
-                }},
-                {{
-                    "answer": "Model",
-                    "correct": false
-                }},
-            ]
-        }},
-     ]}}
-     ```
-     Your turn!
-
+Answer Key:
+Randomize the position of the correct answer across all questions (i.e., the correct answer should not always be in the same position).
+Ensure that the correct answer can appear in any of the options. 
+**Mix up the order of answers** and make sure the correct one is not always the first option.
+"""),
+    ("human", """
+     Quiz level: {level}
      Context: {context}
-""")
+"""),
 ])
-
-formatting_chain = formatting_template | llm
 
 with st.sidebar:
     docs = None
     topic = None
+
+    st.write("Github repo:\nhttps://github.com/ddeeen/FullStackGPT")
+
+    with st.form("api_key"):
+        api_key = st.text_input(label="Enter your OpenAI API key")
+        submit = st.form_submit_button("Submit")
+
+    level = st.radio(
+        "Quiz Level", options=["Easy", "Hard"]
+    )
+
     choice = st.selectbox(
         "Choosde what you want to use.",
         ("File", "Wikipedia Article"), 
@@ -243,15 +157,9 @@ with st.sidebar:
             docs = split_file(file)
     else:
         topic = st.text_input("Search Wikipedia...")
-        if topic:
-            #1
-            # retriever = WikipediaRetriever(
-            #     top_k_result=1, # language 설정 가능
-            # )
-            # with st.status("Searching wikipedia..."):
-            #     docs = retriever.invoke(topic)
-            #2
+        if topic and check_api_key(api_key):
             docs = search_wiki(topic)
+
 
 if not docs:
     st.markdown(
@@ -263,14 +171,34 @@ Get started by uploading a file or searching on Wikipedia in the sidebar.
 """
     )
 else:
-    start = st.button("Generate Quiz")
-    if start:
-        #1
-        # questions_response = question_chain.invoke(docs)
-        # format_response = formatting_chain.invoke({"context" : questions_response.content})
-        #2
-        # chain = {"context":question_chain} | formatting_chain | output_parser
-        # response = chain.invoke(docs)
-        #3
-        response = invoke_quiz_chain(docs, topic if topic else file.name)
-        st.write(response)
+    if check_api_key(api_key):
+        llm = ChatOpenAI(
+            temperature=0.1,
+            model="gpt-4o-mini",
+        ).bind(
+            function_call = {"name":"create_quiz",},
+            functions=[quiz_function,]
+        )
+        questions = invoke_quiz_chain(docs, topic if topic else file.name, level)
+        st.markdown("## Choose the correct answer!")
+        with st.form("quiz_form"):
+            question_number = 0
+            correct_number = 0
+            for question in questions["questions"]:
+                question_number += 1
+                value = st.radio(
+                    question["question"],
+                    options=[answer["answer"] for answer in question["answers"]],
+                    index=None
+                )
+                if {"answer":value, "correct":True} in question["answers"]:
+                    st.success("Correct!")
+                    correct_number += 1
+                elif value:
+                    st.error("Wrong")
+            disabled_button(question_number, correct_number)
+            st.form_submit_button("Submit", disabled=st.session_state["disabled"], 
+                on_click=disabled_button, args=(question_number, correct_number,)
+            )
+        if st.session_state["disabled"]:
+            st.balloons()
