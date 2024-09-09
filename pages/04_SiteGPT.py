@@ -66,9 +66,9 @@ def load_website(url):
     loader = SitemapLoader(
         url,
         filter_urls=[ #입력으로 받을 수 있는 list는 2 종류. 1) data를 load 하고 싶은 url들을 담은 list. 2) 정규식(regular expression)을 사용하는 것.
-            # r"^(.*\/ai-gateway\/).*",
+            r"^(.*\/ai-gateway\/).*",
             r"^(.*\/vectorize\/).*",
-            # r"^(.*\/workers-ai\/).*",
+            r"^(.*\/workers-ai\/).*",
         ],
         parsing_function=parse_page, 
     )
@@ -219,5 +219,4 @@ if check_api_key(api_key) and url:
             send_message(message, "human")
             chain = {"docs": retriever, "question":RunnablePassthrough(), "chat_history": RunnableLambda(memory_load)} | RunnableLambda(get_answers) | RunnableLambda(choose_answer)
             with st.chat_message("ai"):
-                # chain.invoke(message).content.replace("$", "\$")
                 invoke_chain(chain, message)
