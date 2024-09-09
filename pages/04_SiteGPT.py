@@ -194,7 +194,7 @@ with st.sidebar:
 with st.sidebar:
     url = st.text_input("Write down a Cloudflare sitemap.xml", placeholder="ex) https://developers.cloudflare.com/sitemap-0.xml")
 
-if check_api_key(api_key) and url:
+if url and check_api_key(api_key):
     if ".xml" not in url or "cloudflare" not in url:
         with st.sidebar:
             st.error("Please write down a cloudflare Sitemap URL")
