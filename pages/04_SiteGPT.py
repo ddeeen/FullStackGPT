@@ -4,8 +4,9 @@ from langchain.vectorstores.faiss import FAISS
 from langchain.embeddings import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI
 from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.memory import ConversationBufferMemory
 import streamlit as st
 import openai
 import os
@@ -23,6 +24,7 @@ class ChatCallbackHandler(BaseCallbackHandler):
         self.message += token
         self.message_box.markdown(self.message)
 
+# function========================================================================
 def parse_page(soup):
     header = soup.find("header")
     if header:
@@ -55,7 +57,6 @@ def paint_history():
     for message in st.session_state["messages"]:
         send_message(message["message"], message["role"], save=False)
 
-# function========================================================================
 @st.cache_data(show_spinner="Loading website...")
 def load_website(url):
     splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
@@ -65,9 +66,9 @@ def load_website(url):
     loader = SitemapLoader(
         url,
         filter_urls=[ #입력으로 받을 수 있는 list는 2 종류. 1) data를 load 하고 싶은 url들을 담은 list. 2) 정규식(regular expression)을 사용하는 것.
-            r"^(.*\/ai-gateway\/).*",
+            # r"^(.*\/ai-gateway\/).*",
             r"^(.*\/vectorize\/).*",
-            r"^(.*\/workers-ai\/).*",
+            # r"^(.*\/workers-ai\/).*",
         ],
         parsing_function=parse_page, 
     )
@@ -106,7 +107,8 @@ answers_template = ChatPromptTemplate.from_template("""
 def get_answers(inputs):
     docs = inputs["docs"]
     question = inputs["question"]
-    answers_chain = answers_template | llm
+    chat_history = inputs["chat_history"]
+    answers_chain = answers_template | answer_llm
     return {
         "question": question,
         "answers": [
@@ -118,6 +120,7 @@ def get_answers(inputs):
                 "date": doc.metadata["lastmod"],
             } for doc in docs
         ],
+        "chat_history": chat_history,
     }
 
 choose_template = ChatPromptTemplate.from_messages([
@@ -131,16 +134,20 @@ choose_template = ChatPromptTemplate.from_messages([
     Answers: {answers}
     """,
     ),
+    MessagesPlaceholder(
+        variable_name="chat_history",
+    ),
     ("human", "{question}"),
 ])
 
 def choose_answer(inputs):
     answers = inputs["answers"]
     question = inputs["question"]
-    choose_chain = choose_template | llm
+    chat_history = inputs["chat_history"]
+    choose_chain = choose_template | choose_llm
     # 2
     condensed = "".join(f"{answer['answer']}\nSource:{answer['source']}\nDate:{answer['date']}\n" for answer in answers)
-    return choose_chain.invoke({"question":question, "answers": condensed})
+    return choose_chain.invoke({"question":question, "answers": condensed, "chat_history": chat_history})
 
 def check_api_key(api_key):
     try:
@@ -151,10 +158,22 @@ def check_api_key(api_key):
     except Exception:
         st.error("Wrong API Key")
         return False
+    
+def invoke_chain(chain, message):
+    result = chain.invoke(message).content.replace("$", "\$")
+    memory.save_context({"input":message},{"output":result})
+
+def memory_load(_):
+    return memory.load_memory_variables({})["chat_history"]
 # ==================================================================================
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
+
+memory = ConversationBufferMemory(
+    return_messages=True,
+    memory_key="chat_history",
+)
 
 st.set_page_config(
     page_title="SiteGPT Home",
@@ -180,12 +199,17 @@ if check_api_key(api_key) and url:
         with st.sidebar:
             st.error("Please write down a cloudflare Sitemap URL")
     else:
-        llm = ChatOpenAI(
+        choose_llm = ChatOpenAI(
             temperature=0.1,
             model="gpt-4o-mini",
+            streaming=True,
             callbacks=[
                 ChatCallbackHandler()
             ]
+        )
+        answer_llm = ChatOpenAI(
+            temperature=0.1,
+            model="gpt-4o-mini",
         )
         retriever = load_website(url)
         send_message("I'm ready! Ask away!!", "ai", save=False)
@@ -193,6 +217,7 @@ if check_api_key(api_key) and url:
         message = st.chat_input("Ask a question to the website!")
         if message:
             send_message(message, "human")
-            chain = {"docs": retriever, "question":RunnablePassthrough()} | RunnableLambda(get_answers) | RunnableLambda(choose_answer)
+            chain = {"docs": retriever, "question":RunnablePassthrough(), "chat_history": RunnableLambda(memory_load)} | RunnableLambda(get_answers) | RunnableLambda(choose_answer)
             with st.chat_message("ai"):
-                chain.invoke(message).content
+                # chain.invoke(message).content.replace("$", "\$")
+                invoke_chain(chain, message)
