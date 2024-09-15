@@ -321,15 +321,15 @@ if check_api_key(api_key) and model:
         with st.status("Running...") as status:
             while get_run(st.session_state["run_id"], st.session_state["thread_id"]).status != "completed" and get_run(st.session_state["run_id"], st.session_state["thread_id"]).status != "expired":
                 if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "requires_action":
-                    status.update(f"Running - requires_action", state="running")
+                    status.update(label="Running - requires_action", state="running")
                     output = submit_tool_outputs(st.session_state["run_id"], st.session_state["thread_id"])
                 if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "in_progress":
-                    status.update(f"Running - in progress", state="running")
+                    status.update(label="Running - in progress", state="running")
                     while get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "in_progress":
                         time.sleep(1)
             if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "completed":
                 if output[0]["output"] != "error":
-                    status.update("Completed", state="complete")
+                    status.update(label="Completed", state="complete")
                     send_message(output[0]["output"], "ai")
                     st.session_state["messages"].append({"filename":st.session_state['filename']})
                     with st.chat_message("ai"):
@@ -341,8 +341,8 @@ if check_api_key(api_key) and model:
                                 key=f"{st.session_state['filename']}_{time.time()}"
                             )
                 else:
-                    status.update("Error", state="error")
+                    status.update(label="Error", state="error")
                     send_message("Error", "ai", save=False)
             elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
-                status.update("Error - expired", state="error")
+                status.update(label="Error - expired", state="error")
                 send_message("Error: expired. Input new question", "ai", save=False)
