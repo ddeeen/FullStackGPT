@@ -329,9 +329,12 @@ if check_api_key(api_key) and model:
                     while get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "in_progress":
                         time.sleep(1)
             if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "completed":
-                if output[0]["output"] != "Error":
+                # if output[0]["output"] != "Error" and output[0]['output'] != '':
+                if output[0]["output"] not in ("Error", ""):
                     is_answer = True
                     status.update(label="Completed", state="complete")
+                elif output[0]["output"] == "":
+                    status.update(label="Error - Not found term", state="error", expanded=True)
                 else:
                     status.update(label="Error", state="error", expanded=True)
                     # send_message("Error", "ai", save=False)
