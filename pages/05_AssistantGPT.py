@@ -166,6 +166,7 @@ def paint_history():
                         label=f"File download >> {message['filename']}.txt", 
                         data=file,
                         file_name=f"{message['filename']}.txt",
+                        key=f"{message['filename']}_{int(time.time())}"
                     )
 
 functions_map = {
@@ -338,6 +339,7 @@ if check_api_key(api_key) and model:
                         label=f"File download >> {st.session_state['filename']}.txt", 
                         data=file,
                         file_name=f"{st.session_state['filename']}.txt",
+                        key=f"{st.session_state['filename']}_{int(time.time())}"
                     )
         elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
             send_message("Error: Timeout. Input new question", "ai", save=False)
