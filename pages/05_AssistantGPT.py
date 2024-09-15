@@ -340,6 +340,7 @@ if check_api_key(api_key) and model:
                     is_answer = True
                     status.update(label="Completed", state="complete")
                 elif output[0]["output"] == "":
+                    st.session_state["filename"] = ""
                     status.update(label="Error - Not found term", state="error", expanded=True)
                 else:
                     status.update(label="Error", state="error", expanded=True)
@@ -360,9 +361,9 @@ if check_api_key(api_key) and model:
                         file_name=f"{st.session_state['filename']}.txt",
                         key=f"{st.session_state['filename']}_{time.time()}"
                     )
-        elif filename == st.session_state["filename"]:
-            with st.chat_message("ai"):
-                st.error("Error: Same file exists")
-        else:
+        elif st.session_state["filename"] == "":
             with st.chat_message("ai"):
                 st.error("Error: File creation error")
+        else:
+            with st.chat_message("ai"):
+                st.error("Error: Same file exists")

@@ -56,7 +56,15 @@ def send_message(message, role, save=True):
 
 def paint_history():
     for message in st.session_state["messages"]:
-        send_message(message["message"], message["role"], save=False)
+        if "filename" in message:
+            with open(f"./.cache/agent/{message['filename']}.txt", "r", encoding="utf-8") as file:
+                st.download_button(
+                    label="File download", 
+                    data=file,
+                    file_name=f"{message['filename']}.txt",
+                )
+        else:
+            send_message(message["message"], message["role"], save=False)
 
 def format_docs(docs):
     return "\n\n".join(document.page_content for document in docs)
