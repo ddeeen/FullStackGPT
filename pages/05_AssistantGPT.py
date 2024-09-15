@@ -166,7 +166,7 @@ def paint_history():
                         label=f"File download >> {message['filename']}.txt", 
                         data=file,
                         file_name=f"{message['filename']}.txt",
-                        key=f"{message['filename']}_{int(time.time())}"
+                        key=f"{message['filename']}_{time.time()}"
                     )
 
 functions_map = {
@@ -303,7 +303,6 @@ if check_api_key(api_key) and model:
         You are a research expert.
         When you get a research request, decide between Wikipedia and DuckDuckGo.
         Perform the search using the better option.
-        If one source lacks information, gather more from the other.
         With DuckDuckGo, obtain the website's URL.
         Use the URL to extract information from the site.
         Write all collected content.
@@ -331,14 +330,15 @@ if check_api_key(api_key) and model:
                     time.sleep(1)
         if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "completed":
             send_message(output[0]["output"], "ai")
-            st.session_state["messages"].append({"filename":st.session_state['filename']})
-            with st.chat_message("ai"):
-                with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
-                    st.download_button(
-                        label=f"File download >> {st.session_state['filename']}.txt", 
-                        data=file,
-                        file_name=f"{st.session_state['filename']}.txt",
-                        key=f"{st.session_state['filename']}_{int(time.time())}"
-                    )
+            if output[0]["output"] != "error":
+                st.session_state["messages"].append({"filename":st.session_state['filename']})
+                with st.chat_message("ai"):
+                    with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
+                        st.download_button(
+                            label=f"File download >> {st.session_state['filename']}.txt", 
+                            data=file,
+                            file_name=f"{st.session_state['filename']}.txt",
+                            key=f"{st.session_state['filename']}_{time.time()}"
+                        )
         elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
             send_message("Error: Timeout. Input new question", "ai", save=False)
