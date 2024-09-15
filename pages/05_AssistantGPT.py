@@ -316,6 +316,7 @@ if check_api_key(api_key) and model:
     paint_history()
     question = st.chat_input("Ask anything. ex)Research about the XZ backdoor")
     if question:
+        is_answer = False
         send_message(question, "human")
         add_message(st.session_state["thread_id"], st.session_state["assistant_id"], question)
         with st.status("Running...") as status:
@@ -328,21 +329,23 @@ if check_api_key(api_key) and model:
                     while get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "in_progress":
                         time.sleep(1)
             if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "completed":
+                is_answer = True
                 if output[0]["output"] != "error":
                     status.update(label="Completed", state="complete")
-                    send_message(output[0]["output"], "ai")
-                    st.session_state["messages"].append({"filename":st.session_state['filename']})
-                    with st.chat_message("ai"):
-                        with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
-                            st.download_button(
-                                label=f"File download >> {st.session_state['filename']}.txt", 
-                                data=file,
-                                file_name=f"{st.session_state['filename']}.txt",
-                                key=f"{st.session_state['filename']}_{time.time()}"
-                            )
                 else:
-                    status.update(label="Error", state="error")
-                    send_message("Error", "ai", save=False)
+                    status.update(label="Error", state="error", expanded=True)
+                    # send_message("Error", "ai", save=False)
             elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
-                status.update(label="Error - expired", state="error")
-                send_message("Error: expired. Input new question", "ai", save=False)
+                status.update(label="Error - expired", state="error", expanded=True)
+                # send_message("Error: expired. Input new question", "ai", save=False)
+        if is_answer:
+            send_message(output[0]["output"], "ai")
+            st.session_state["messages"].append({"filename":st.session_state['filename']})
+            with st.chat_message("ai"):
+                with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
+                    st.download_button(
+                        label=f"File download >> {st.session_state['filename']}.txt", 
+                        data=file,
+                        file_name=f"{st.session_state['filename']}.txt",
+                        key=f"{st.session_state['filename']}_{time.time()}"
+                    )
