@@ -329,8 +329,8 @@ if check_api_key(api_key) and model:
                     while get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "in_progress":
                         time.sleep(1)
             if get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "completed":
-                is_answer = True
-                if output[0]["output"] != "error":
+                if output[0]["output"] != "Error":
+                    is_answer = True
                     status.update(label="Completed", state="complete")
                 else:
                     status.update(label="Error", state="error", expanded=True)
