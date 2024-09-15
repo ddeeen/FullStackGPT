@@ -297,7 +297,6 @@ if check_api_key(api_key) and model:
     if not st.session_state["assistant_id"] or st.session_state["bef_api_key"] != api_key or st.session_state["model"] != model:
         st.session_state["bef_api_key"] = api_key
         st.session_state["model"] = model
-        st.write("Assistant Create")
         assistant = client.beta.assistants.create(
             name="Research Assistant",
             instructions="""
