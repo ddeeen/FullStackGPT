@@ -79,8 +79,8 @@ def get_messages(thread_id):
     )
     messages = list(messages)
     # messages.reverse()
-    for message in messages:
-        print(f"{message.role}:{message.content[0].text.value}")
+    # for message in messages:
+    #     print(f"{message.role}:{message.content[0].text.value}")
     for message in messages:
         if message.role == "assistant":
             return message.content[0].text.value
@@ -322,6 +322,7 @@ if check_api_key(api_key) and model:
     question = st.chat_input("Ask anything. ex)Research about the XZ backdoor")
     if question:
         is_answer = False
+        filename = st.session_state["filename"]
         send_message(question, "human")
         add_message(st.session_state["thread_id"], st.session_state["assistant_id"], question)
         with st.status("Running...") as status:
@@ -346,10 +347,10 @@ if check_api_key(api_key) and model:
             elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
                 status.update(label="Error - expired", state="error", expanded=True)
                 # send_message("Error: expired. Input new question", "ai", save=False)
-            result = get_messages(st.session_state["thread_id"])
-            # send_message(output[0]["output"], "ai")
-            send_message(result, "ai")
-        if is_answer:
+        result = get_messages(st.session_state["thread_id"])
+        # send_message(output[0]["output"], "ai")
+        send_message(result, "ai")
+        if is_answer and filename != st.session_state["filename"]:
             st.session_state["messages"].append({"filename":st.session_state['filename']})
             with st.chat_message("ai"):
                 with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
@@ -359,3 +360,9 @@ if check_api_key(api_key) and model:
                         file_name=f"{st.session_state['filename']}.txt",
                         key=f"{st.session_state['filename']}_{time.time()}"
                     )
+        elif filename == st.session_state["filename"]:
+            with st.chat_message("ai"):
+                st.error("Error: Same file exists")
+        else:
+            with st.chat_message("ai"):
+                st.error("Error: File creation error")
