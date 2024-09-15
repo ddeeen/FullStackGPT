@@ -78,9 +78,14 @@ def get_messages(thread_id):
         thread_id=thread_id,
     )
     messages = list(messages)
-    messages.reverse()
+    # messages.reverse()
     for message in messages:
         print(f"{message.role}:{message.content[0].text.value}")
+    for message in messages:
+        if message.role == "assistant":
+            return message.content[0].text.value
+        # print(f"{message.role}:{message.content[0].text.value}")
+    return ""
 
 def run_message(thread_id, assistant_id):
     run = client.beta.threads.runs.create(
@@ -341,8 +346,10 @@ if check_api_key(api_key) and model:
             elif get_run(st.session_state["run_id"], st.session_state["thread_id"]).status == "expired":
                 status.update(label="Error - expired", state="error", expanded=True)
                 # send_message("Error: expired. Input new question", "ai", save=False)
+            result = get_messages(st.session_state["thread_id"])
+            # send_message(output[0]["output"], "ai")
+            send_message(result, "ai")
         if is_answer:
-            send_message(output[0]["output"], "ai")
             st.session_state["messages"].append({"filename":st.session_state['filename']})
             with st.chat_message("ai"):
                 with open(f"./.cache/agent/{st.session_state['filename']}.txt", "r", encoding="utf-8") as file:
