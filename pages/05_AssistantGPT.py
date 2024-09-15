@@ -251,9 +251,6 @@ functions = [
     }
 ]
 
-if "thread_id" not in st.session_state:
-    create_thread()
-
 if "assistant_id" not in st.session_state:
     st.session_state["assistant_id"] = None
 
@@ -294,6 +291,8 @@ with st.sidebar:
         st.error("Choose a model")
 
 if check_api_key(api_key) and model:
+    if "thread_id" not in st.session_state:
+        create_thread()
     if not st.session_state["assistant_id"] or st.session_state["bef_api_key"] != api_key or st.session_state["model"] != model:
         st.session_state["bef_api_key"] = api_key
         st.session_state["model"] = model
